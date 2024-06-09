@@ -1,0 +1,14 @@
+[package]
+name = "ruhr"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4.5.6", features = ["derive"] }
+chrono = "0.4.38"
+chrono-tz = "0.9.0"
+lazy_static = "1.4.0"
+reqwest = { version = "0.12.4", features = ["blocking", "json"] }
+serde = { version = "1.0.203", features = ["derive"] }
+tzf-rs = "0.4.8"
+tokio = { version = "1.38.0", features = ["full"] }
