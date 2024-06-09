@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }?;
     let now = Utc::now().with_timezone(&place.time_zone).format("%H:%M");
-
+    println!("{now}");
     Ok(())
 }
 

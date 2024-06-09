@@ -14,10 +14,10 @@ impl Store {
         conn.execute(
             "
             CREATE TABLE IF NOT EXISTS place (
-                id INTEGER PRIMARY KEY
+                id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
                 display_name TEXT NOT NULL,
-                time_zone_id INTEGER
+                time_zone_id INTEGER,
                 FOREIGN KEY(time_zone_id) REFERENCES time_zone(id)
             )
             ",
@@ -38,7 +38,7 @@ impl Store {
     fn add_time_zone(&self, tz: &Tz) -> Result<i64, rusqlite::Error> {
         self.conn.execute(
             "INSERT OR IGNORE INTO time_zone (name) VALUES (?1)",
-            [tz.name()],
+            params![tz.name()],
         )?;
         // Retrieve the ID of the inserted or existing timezone
         let time_zone_id: i64 = self.conn.query_row(
@@ -91,7 +91,7 @@ impl Store {
                     Box::new(e),
                 )
             })?;
-
+            print!("{:?}", row);
             Ok(PlaceWithTimeZone {
                 name: row.get("name")?,
                 display_name: row.get("display_name")?,
