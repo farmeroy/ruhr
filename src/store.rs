@@ -15,7 +15,7 @@ impl Store {
             "
             CREATE TABLE IF NOT EXISTS place (
                 id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL,
+                name TEXT NOT NULL COLLATE NOCASE,
                 display_name TEXT NOT NULL,
                 time_zone_id INTEGER,
                 FOREIGN KEY(time_zone_id) REFERENCES time_zone(id)
@@ -61,7 +61,7 @@ impl Store {
             INSERT INTO place (name, display_name, time_zone_id)
             VALUES (?1, ?2, ?3)
             ",
-            params![place.name, place.display_name, time_zone_id],
+            params![place.name.to_uppercase(), place.display_name, time_zone_id],
         )?;
         Ok(PlaceWithTimeZone {
             name: place.name.to_owned(),
@@ -91,7 +91,6 @@ impl Store {
                     Box::new(e),
                 )
             })?;
-            print!("{:?}", row);
             Ok(PlaceWithTimeZone {
                 name: row.get("name")?,
                 display_name: row.get("display_name")?,

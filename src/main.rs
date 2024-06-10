@@ -1,4 +1,4 @@
-use std::{error::Error, time::Duration};
+use std::time::Duration;
 
 use chrono::Utc;
 use chrono_tz::Tz;
@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let place = match store.get_place(&args.place) {
         Ok(place) => Ok(place),
-        Err(_) => {
+        Err(e) => {
             if let Ok(resp) = fetch_places(&args.place.to_string()).await {
                 if let Some(result) = resp.first() {
                     // The lat and lon should be valid f64
@@ -43,10 +43,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let new_place = store.add_place(result, tz)?;
                     Ok(new_place)
                 } else {
-                    Err(rusqlite::Error::QueryReturnedNoRows)
+                    Err(e)
                 }
             } else {
-                Err(rusqlite::Error::QueryReturnedNoRows)
+                Err(e)
             }
         }
     }?;
