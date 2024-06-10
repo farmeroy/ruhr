@@ -24,31 +24,37 @@ lazy_static! {
     static ref FINDER: Finder = Finder::new();
 }
 
+#[derive(Debug)]
+pub enum RuhrError {
+    NetworkError(reqwest::Error),
+    DatabaseError(rusqlite::Error),
+}
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), RuhrError> {
     let args = Cli::parse();
     let home_dir = home_dir().unwrap();
-    let store = store::Store::new(format!("{}/.ruhr.db3", home_dir.to_string_lossy()).as_str())?;
+    let store =
+        store::Store::new(format!("{}/.ruhr.db3", home_dir.to_string_lossy()).as_str()).unwrap();
 
     let place = match store.get_place(&args.place) {
         Ok(place) => Ok(place),
-        Err(e) => {
-            if let Ok(resp) = fetch_places(&args.place.to_string()).await {
-                if let Some(result) = resp.first() {
-                    // The lat and lon should be valid f64
-                    let (lat, lon) = (result.lat.parse().unwrap(), result.lon.parse().unwrap());
-                    let zone = FINDER.get_tz_name(lon, lat);
-                    let tz = zone.parse::<Tz>().unwrap();
-                    // if the timezone can't parse we can panic
-                    let new_place = store.add_place(result, tz)?;
-                    Ok(new_place)
-                } else {
-                    Err(e)
+        Err(_) => match fetch_places(&args.place.to_string()).await {
+            Ok(result) => {
+                let result = result.first().expect("No place with that name");
+                let (lat, lon) = (
+                    result.lat.parse().expect("Could not parse latitude"),
+                    result.lon.parse().expect("Could not parse longitude"),
+                );
+                let zone = FINDER.get_tz_name(lon, lat);
+                let tz = zone.parse::<Tz>().expect("Could not parse the time zone");
+                match store.add_place(result, tz) {
+                    Ok(new_place) => Ok(new_place),
+                    Err(e) => Err(RuhrError::DatabaseError(e)),
                 }
-            } else {
-                Err(e)
             }
-        }
+            Err(e) => Err(RuhrError::NetworkError(e)),
+        },
     }?;
     let now = Utc::now().with_timezone(&place.time_zone).format("%H:%M");
     println!("{now}");
