@@ -2,6 +2,8 @@
 name = "ruhr"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "A command line world clock"
 
 [dependencies]
 clap = { version = "4.5.6", features = ["derive"] }
