@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use chrono::Utc;
-use chrono_tz::Tz;
+use chrono_tz::{OffsetName, Tz};
 use clap::Parser;
 use dirs::home_dir;
 use lazy_static::lazy_static;
@@ -18,6 +18,8 @@ mod types;
 struct Cli {
     #[arg(index = 1)]
     place: String,
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 lazy_static! {
@@ -56,8 +58,21 @@ async fn main() -> Result<(), RuhrError> {
             Err(e) => Err(RuhrError::NetworkError(e)),
         },
     }?;
-    let now = Utc::now().with_timezone(&place.time_zone).format("%H:%M");
-    println!("{now}");
+    let (display_name, timezone, format) = match args.verbose {
+        true => (
+            place.display_name,
+            place.time_zone.name(),
+            "%Y-%m-%d %H:%M:%S",
+        ),
+        false => ("".to_string(), "", "%H:%M"),
+    };
+    let now = Utc::now().with_timezone(&place.time_zone);
+    println!(
+        "{} {} {}",
+        display_name,
+        now.format(format),
+        now.offset().abbreviation(),
+    );
     Ok(())
 }
 
