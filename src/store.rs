@@ -15,8 +15,8 @@ impl Store {
             "
             CREATE TABLE IF NOT EXISTS place (
                 id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL COLLATE NOCASE,
-                display_name TEXT NOT NULL,
+                name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+                display_name TEXT NOT NULL UNIQUE,
                 time_zone_id INTEGER,
                 FOREIGN KEY(time_zone_id) REFERENCES time_zone(id)
             )
@@ -58,7 +58,7 @@ impl Store {
         let time_zone_id = self.add_time_zone(&tz)?;
         self.conn.execute(
             "
-            INSERT INTO place (name, display_name, time_zone_id)
+            INSERT OR IGNORE INTO place (name, display_name, time_zone_id)
             VALUES (?1, ?2, ?3)
             ",
             params![place.name.to_uppercase(), place.display_name, time_zone_id],

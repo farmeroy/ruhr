@@ -17,7 +17,7 @@ mod types;
 #[command(about = "A command line world clock", long_about = None)]
 struct Cli {
     #[arg(index = 1)]
-    place: String,
+    place: Vec<String>,
     #[arg(short, long)]
     verbose: bool,
 }
@@ -39,9 +39,9 @@ async fn main() -> Result<(), RuhrError> {
     let store =
         store::Store::new(format!("{}/.ruhr.db3", home_dir.to_string_lossy()).as_str()).unwrap();
 
-    let place = match store.get_place(&args.place) {
+    let place = match store.get_place(&args.place.join(" ")) {
         Ok(place) => Ok(place),
-        Err(_) => match fetch_places(&args.place.to_string()).await {
+        Err(_) => match fetch_places(&args.place.join("+")).await {
             Ok(result) => {
                 let result = result.first().expect("No place with that name");
                 let (lat, lon) = (
@@ -51,34 +51,32 @@ async fn main() -> Result<(), RuhrError> {
                 let zone = FINDER.get_tz_name(lon, lat);
                 let tz = zone.parse::<Tz>().expect("Could not parse the time zone");
                 match store.add_place(result, tz) {
-                    Ok(new_place) => Ok(new_place),
+                    Ok(new_place) => {
+                        println!("Found new place: {}, {}", result.name, zone);
+                        Ok(new_place)
+                    }
                     Err(e) => Err(RuhrError::DatabaseError(e)),
                 }
             }
             Err(e) => Err(RuhrError::NetworkError(e)),
         },
     }?;
+    let now = Utc::now().with_timezone(&place.time_zone);
     let (display_name, timezone, format) = match args.verbose {
         true => (
             place.display_name,
             place.time_zone.name(),
             "%Y-%m-%d %H:%M:%S",
         ),
-        false => ("".to_string(), "", "%H:%M"),
+        false => ("".to_string(), now.offset().abbreviation(), "%H:%M"),
     };
-    let now = Utc::now().with_timezone(&place.time_zone);
-    println!(
-        "{} {} {}",
-        display_name,
-        now.format(format),
-        now.offset().abbreviation(),
-    );
+    println!("{} {} {}", display_name, now.format(format), timezone);
     Ok(())
 }
 
 async fn fetch_places(search: &String) -> Result<Places, reqwest::Error> {
     let query_string = format!(
-        "https://nominatim.openstreetmap.org/search?q={}&format=jsonv2",
+        "https://nominatim.openstreetmap.org/search?q={}&format=jsonv2&limit=1",
         search
     );
     let resp = reqwest::Client::new()
