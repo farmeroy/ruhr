@@ -20,6 +20,8 @@ struct Cli {
     place: Vec<String>,
     #[arg(short, long)]
     verbose: bool,
+    #[arg(short, long)]
+    alias: Option<String>,
 }
 
 lazy_static! {
@@ -38,6 +40,11 @@ async fn main() -> Result<(), RuhrError> {
     let home_dir = home_dir().unwrap();
     let store =
         store::Store::new(format!("{}/.ruhr.db3", home_dir.to_string_lossy()).as_str()).unwrap();
+    // The alias will be the value the user wants to search by
+    let alias = match args.alias {
+        Some(alias) => alias,
+        None => args.place.join(" ").to_owned(),
+    };
 
     let place = match store.get_place(&args.place.join(" ")) {
         Ok(place) => Ok(place),
@@ -50,9 +57,9 @@ async fn main() -> Result<(), RuhrError> {
                 );
                 let zone = FINDER.get_tz_name(lon, lat);
                 let tz = zone.parse::<Tz>().expect("Could not parse the time zone");
-                match store.add_place(result, tz) {
+                match store.add_place(result, tz, alias) {
                     Ok(new_place) => {
-                        println!("Found new place: {}, {}", result.name, zone);
+                        println!("Found new place: {:?}", result);
                         Ok(new_place)
                     }
                     Err(e) => Err(RuhrError::DatabaseError(e)),

@@ -19,8 +19,18 @@ impl Store {
                 display_name TEXT NOT NULL UNIQUE,
                 time_zone_id INTEGER,
                 FOREIGN KEY(time_zone_id) REFERENCES time_zone(id)
-            )
-            ",
+            ) ",
+            (),
+        )?;
+        conn.execute(
+            "
+            CREATE  TABLE IF NOT EXISTS alias (
+            id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+            place_id INTEGER,
+            FOREIGN KEY(place_id) REFERENCES place(id)
+            
+            )",
             (),
         )?;
         conn.execute(
@@ -54,14 +64,15 @@ impl Store {
         &self,
         place: &OpenStreetMapPlace,
         tz: Tz,
+        alias: String,
     ) -> Result<PlaceWithTimeZone, rusqlite::Error> {
         let time_zone_id = self.add_time_zone(&tz)?;
         self.conn.execute(
             "
-            INSERT OR IGNORE INTO place (name, display_name, time_zone_id)
-            VALUES (?1, ?2, ?3)
+            INSERT OR IGNORE INTO place (name, display_name, alias, time_zone_id)
+            VALUES (?1, ?2, ?3, ?4)
             ",
-            params![place.name.to_uppercase(), place.display_name, time_zone_id],
+            params![place.name, place.display_name, alias, time_zone_id],
         )?;
         Ok(PlaceWithTimeZone {
             name: place.name.to_owned(),
@@ -73,7 +84,7 @@ impl Store {
     pub fn get_place(&self, name: &String) -> Result<PlaceWithTimeZone, rusqlite::Error> {
         let mut stmt = self
             .conn
-            .prepare("SELECT name, display_name, time_zone_id FROM place WHERE name = ?1")?;
+            .prepare("SELECT name, display_name, time_zone_id FROM place WHERE alias = ?1")?;
         let place = stmt.query_row(params![name], |row| {
             let time_zone_id: i64 = row.get("time_zone_id")?;
 
