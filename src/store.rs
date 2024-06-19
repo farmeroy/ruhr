@@ -69,10 +69,22 @@ impl Store {
         let time_zone_id = self.add_time_zone(&tz)?;
         self.conn.execute(
             "
-            INSERT OR IGNORE INTO place (name, display_name, alias, time_zone_id)
-            VALUES (?1, ?2, ?3, ?4)
+            INSERT OR IGNORE INTO place (name, display_name, time_zone_id)
+            VALUES (?1, ?2, ?3)
             ",
-            params![place.name, place.display_name, alias, time_zone_id],
+            params![place.name, place.display_name, time_zone_id],
+        )?;
+        let place_id: i64 = self.conn.query_row(
+            "SELECT id FROM place WHERE name = ?1",
+            params![place.name],
+            |row| row.get(0),
+        )?;
+        self.conn.execute(
+            "
+            INSERT OR REPLACE INTO alias (name, place_id)
+            VALUES (?1, ?2)
+            ",
+            params![alias, place_id],
         )?;
         Ok(PlaceWithTimeZone {
             name: place.name.to_owned(),
@@ -84,7 +96,7 @@ impl Store {
     pub fn get_place(&self, name: &String) -> Result<PlaceWithTimeZone, rusqlite::Error> {
         let mut stmt = self
             .conn
-            .prepare("SELECT name, display_name, time_zone_id FROM place WHERE alias = ?1")?;
+            .prepare("SELECT p.name, p.display_name, p.time_zone_id FROM place p JOIN alias a ON p.id = a.place_id WHERE a.name = ?1")?;
         let place = stmt.query_row(params![name], |row| {
             let time_zone_id: i64 = row.get("time_zone_id")?;
 
