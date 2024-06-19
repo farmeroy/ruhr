@@ -58,10 +58,7 @@ async fn main() -> Result<(), RuhrError> {
                 let zone = FINDER.get_tz_name(lon, lat);
                 let tz = zone.parse::<Tz>().expect("Could not parse the time zone");
                 match store.add_place(result, tz, alias) {
-                    Ok(new_place) => {
-                        println!("Found new place: {:?}", result);
-                        Ok(new_place)
-                    }
+                    Ok(new_place) => Ok(new_place),
                     Err(e) => Err(RuhrError::DatabaseError(e)),
                 }
             }
