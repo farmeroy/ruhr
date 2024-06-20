@@ -41,20 +41,22 @@ async fn main() -> Result<(), RuhrError> {
     let store =
         store::Store::new(format!("{}/.ruhr.db3", home_dir.to_string_lossy()).as_str()).unwrap();
     // The alias will be the value the user wants to search by
-    let alias = match args.alias {
-        Some(alias) => alias,
-        None => args.place.join(" ").to_owned(),
-    };
 
     let place = match store.get_place(&args.place.join(" ")) {
         Ok(place) => {
-            store
-                .add_alias(&alias, place.id)
-                .expect("Could not create alias");
+            if args.alias.is_some() {
+                store
+                    .add_alias(&args.alias.unwrap(), place.id)
+                    .expect("Could not create alias");
+            }
             Ok(place)
         }
         Err(_) => match fetch_places(&args.place.join("+")).await {
             Ok(result) => {
+                let alias = match args.alias {
+                    Some(alias) => alias,
+                    None => args.place.join(" ").to_owned(),
+                };
                 let result = result.first().expect("No place with that name");
                 let (lat, lon) = (
                     result.lat.parse().expect("Could not parse latitude"),
