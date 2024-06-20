@@ -87,7 +87,7 @@ impl Store {
             params![alias, place_id],
         )?;
         Ok(PlaceWithTimeZone {
-            name: place.name.to_owned(),
+            _name: place.name.to_owned(),
             display_name: place.display_name.to_owned(),
             time_zone: tz,
         })
@@ -115,7 +115,6 @@ impl Store {
                 )
             })?;
             let id: i64 = row.get("id").expect("could not get id");
-            println!("id: {id}");
             self.conn.execute(
                 "
             INSERT OR REPLACE INTO alias (name, place_id)
@@ -124,7 +123,7 @@ impl Store {
                 params![name, id],
             )?;
             Ok(PlaceWithTimeZone {
-                name: row.get("name")?,
+                _name: row.get("name")?,
                 display_name: row.get("display_name")?,
                 time_zone: tz,
             })

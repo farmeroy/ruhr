@@ -25,7 +25,7 @@ pub struct OpenStreetMapPlace {
 }
 
 pub struct PlaceWithTimeZone {
-    pub name: String,
+    pub _name: String,
     pub display_name: String,
     pub time_zone: Tz,
 }
