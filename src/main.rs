@@ -46,7 +46,7 @@ async fn main() -> Result<(), RuhrError> {
         None => args.place.join(" ").to_owned(),
     };
 
-    let place = match store.get_place(&alias) {
+    let place = match store.get_place(&args.place.join(" ")) {
         Ok(place) => Ok(place),
         Err(_) => match fetch_places(&args.place.join("+")).await {
             Ok(result) => {
