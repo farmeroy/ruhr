@@ -47,7 +47,12 @@ async fn main() -> Result<(), RuhrError> {
     };
 
     let place = match store.get_place(&args.place.join(" ")) {
-        Ok(place) => Ok(place),
+        Ok(place) => {
+            store
+                .add_alias(&alias, place.id)
+                .expect("Could not create alias");
+            Ok(place)
+        }
         Err(_) => match fetch_places(&args.place.join("+")).await {
             Ok(result) => {
                 let result = result.first().expect("No place with that name");

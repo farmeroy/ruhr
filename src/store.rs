@@ -87,6 +87,7 @@ impl Store {
             params![alias, place_id],
         )?;
         Ok(PlaceWithTimeZone {
+            id: place_id,
             _name: place.name.to_owned(),
             display_name: place.display_name.to_owned(),
             time_zone: tz,
@@ -114,20 +115,22 @@ impl Store {
                     Box::new(e),
                 )
             })?;
-            let id: i64 = row.get("id").expect("could not get id");
-            self.conn.execute(
-                "
-            INSERT OR REPLACE INTO alias (name, place_id)
-            VALUES (?1, ?2)
-            ",
-                params![name, id],
-            )?;
             Ok(PlaceWithTimeZone {
+                id: row.get("id")?,
                 _name: row.get("name")?,
                 display_name: row.get("display_name")?,
                 time_zone: tz,
             })
         });
         place
+    }
+    pub fn add_alias(&self, alias: &String, id: i64) -> Result<usize, rusqlite::Error> {
+        Ok(self.conn.execute(
+            "
+            INSERT OR REPLACE INTO alias (name, place_id)
+            VALUES (?1, ?2)
+            ",
+            params![alias, id],
+        )?)
     }
 }
