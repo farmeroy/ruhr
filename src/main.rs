@@ -3,9 +3,11 @@ use std::time::Duration;
 use chrono::Utc;
 use chrono_tz::{OffsetName, Tz};
 use clap::Parser;
+use dialoguer::{theme::ColorfulTheme, Select};
 use dirs::home_dir;
 use lazy_static::lazy_static;
-use types::Places;
+use reqwest::Request;
+use types::{OpenStreetMapPlace, Places};
 use tzf_rs::Finder;
 
 mod store;
@@ -56,14 +58,14 @@ async fn main() -> Result<(), RuhrError> {
                     Some(alias) => alias,
                     None => args.place.join(" ").to_owned(),
                 };
-                let result = result.first().expect("No place with that name");
+                let result = result;
                 let (lat, lon) = (
                     result.lat.parse().expect("Could not parse latitude"),
                     result.lon.parse().expect("Could not parse longitude"),
                 );
                 let zone = FINDER.get_tz_name(lon, lat);
                 let tz = zone.parse::<Tz>().expect("Could not parse the time zone");
-                match store.add_place(result, tz, alias) {
+                match store.add_place(&result, tz, alias) {
                     Ok(new_place) => Ok(new_place),
                     Err(e) => Err(RuhrError::DatabaseError(e)),
                 }
@@ -84,9 +86,9 @@ async fn main() -> Result<(), RuhrError> {
     Ok(())
 }
 
-async fn fetch_places(search: &String) -> Result<Places, reqwest::Error> {
+async fn fetch_places(search: &String) -> Result<OpenStreetMapPlace, reqwest::Error> {
     let query_string = format!(
-        "https://nominatim.openstreetmap.org/search?q={}&format=jsonv2&limit=1",
+        "https://nominatim.openstreetmap.org/search?q={}&format=jsonv2",
         search
     );
     let resp = reqwest::Client::new()
@@ -102,7 +104,21 @@ async fn fetch_places(search: &String) -> Result<Places, reqwest::Error> {
         .await;
 
     match resp {
-        Ok(res) => res.json().await,
+        Ok(res) => {
+            let places: Places = res.json().await.unwrap();
+            let options: Vec<String> = places.iter().map(|p| p.display_name.to_string()).collect();
+            let selection_index = Select::with_theme(&ColorfulTheme::default())
+                .items(&options)
+                .default(0)
+                .interact()
+                .unwrap();
+            let selection = options.get(selection_index).unwrap();
+            let place = places
+                .into_iter()
+                .find(|place| place.display_name == *selection)
+                .expect("No place found");
+            Ok(place)
+        }
         Err(e) => Err(e),
     }
 }
