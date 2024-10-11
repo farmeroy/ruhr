@@ -1,4 +1,5 @@
-use std::time::Duration;
+use core::fmt;
+use std::{fmt::Display, process, time::Duration};
 
 use chrono::Utc;
 use chrono_tz::{OffsetName, Tz};
@@ -6,7 +7,6 @@ use clap::Parser;
 use dialoguer::{theme::ColorfulTheme, Select};
 use dirs::home_dir;
 use lazy_static::lazy_static;
-use reqwest::Request;
 use types::{OpenStreetMapPlace, Places};
 use tzf_rs::Finder;
 
@@ -18,10 +18,15 @@ mod types;
 #[command(version = "0.1.1")]
 #[command(about = "A command line world clock", long_about = None)]
 struct Cli {
+    /// The place name, or alias for a place, that you intend to search for.
+    /// If a place with this name or alias exists locally, tht value will be returned, otherwise
+    /// it will send a request to the Nominatim database
     #[arg(index = 1)]
     place: Vec<String>,
+    /// This will include all information about the given place
     #[arg(short, long)]
     verbose: bool,
+    /// Set an alias for a given place
     #[arg(short, long)]
     alias: Option<String>,
 }
@@ -34,6 +39,24 @@ lazy_static! {
 pub enum RuhrError {
     NetworkError(reqwest::Error),
     DatabaseError(rusqlite::Error),
+}
+
+impl Display for RuhrError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            RuhrError::NetworkError(e) => {
+                if e.is_connect() {
+                    write! {f, "Connection refused"}
+                } else {
+                    let status_code = e.status().unwrap_or_default();
+                    write!(f, "Network Error with status code {}", status_code)
+                }
+            }
+            RuhrError::DatabaseError(_) => {
+                write!(f, "DatabaseError")
+            }
+        }
+    }
 }
 
 #[tokio::main]
@@ -54,6 +77,7 @@ async fn main() -> Result<(), RuhrError> {
         }
         Err(_) => match fetch_places(&args.place.join("+")).await {
             Ok(result) => {
+                // place alias is either given as an argument or defaulted to the search string
                 let alias = match args.alias {
                     Some(alias) => alias,
                     None => args.place.join(" ").to_owned(),
@@ -70,7 +94,10 @@ async fn main() -> Result<(), RuhrError> {
                     Err(e) => Err(RuhrError::DatabaseError(e)),
                 }
             }
-            Err(e) => Err(RuhrError::NetworkError(e)),
+            Err(e) => {
+                println!("{}", e);
+                process::exit(1)
+            }
         },
     }?;
     let now = Utc::now().with_timezone(&place.time_zone);
@@ -86,18 +113,18 @@ async fn main() -> Result<(), RuhrError> {
     Ok(())
 }
 
-async fn fetch_places(search: &String) -> Result<OpenStreetMapPlace, reqwest::Error> {
+async fn fetch_places(search: &String) -> Result<OpenStreetMapPlace, RuhrError> {
+    println!(
+        "Searching Nominatum database for places matching '{}'",
+        search
+    );
     let query_string = format!(
         "https://nominatim.openstreetmap.org/search?q={}&format=jsonv2",
         search
     );
     let resp = reqwest::Client::new()
         .get(query_string)
-        .header(
-            "User-Agent",
-            "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:126.0) Gecko/20100101 Firefox/126.0",
-        )
-        .header("Referer", "localhost")
+        .header("User-Agent", "ruhr/0.1.1")
         .header("Accept-Language", "en-US")
         .timeout(Duration::from_secs(5))
         .send()
@@ -106,7 +133,9 @@ async fn fetch_places(search: &String) -> Result<OpenStreetMapPlace, reqwest::Er
     match resp {
         Ok(res) => {
             let places: Places = res.json().await.unwrap();
-            let options: Vec<String> = places.iter().map(|p| p.display_name.to_string()).collect();
+            let mut options: Vec<String> =
+                places.iter().map(|p| p.display_name.to_string()).collect();
+            options.push(String::from("Cancel"));
             let selection_index = Select::with_theme(&ColorfulTheme::default())
                 .items(&options)
                 .default(0)
@@ -116,9 +145,12 @@ async fn fetch_places(search: &String) -> Result<OpenStreetMapPlace, reqwest::Er
             let place = places
                 .into_iter()
                 .find(|place| place.display_name == *selection)
-                .expect("No place found");
+                .unwrap_or_else(|| {
+                    println!("Could not find place");
+                    process::exit(1);
+                });
             Ok(place)
         }
-        Err(e) => Err(e),
+        Err(e) => Err(RuhrError::NetworkError(e)),
     }
 }
