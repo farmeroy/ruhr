@@ -15,7 +15,7 @@ mod types;
 
 #[derive(Parser)]
 #[command(name = "ruhr")]
-#[command(version = "0.1.1")]
+#[command(version = "0.3.0")]
 #[command(about = "A command line world clock", long_about = None)]
 struct Cli {
     /// The place name, or alias for a place, that you intend to search for.
@@ -124,7 +124,7 @@ async fn fetch_places(search: &String) -> Result<OpenStreetMapPlace, RuhrError> 
     );
     let resp = reqwest::Client::new()
         .get(query_string)
-        .header("User-Agent", "ruhr/0.1.1")
+        .header("User-Agent", "ruhr/0.2.5")
         .header("Accept-Language", "en-US")
         .timeout(Duration::from_secs(5))
         .send()
